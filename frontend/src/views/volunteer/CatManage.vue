@@ -12,8 +12,8 @@
         <el-card class="cat-card" :body-style="{ padding: '0px' }" shadow="hover" @click="openCatDetail(cat)">
           <div class="cat-image-wrapper">
             <img :src="cat.coverImage || 'https://cube.elemecdn.com/e/fd/0fc7d20532fdaf769a25683617711png.png'" class="cat-image" />
-            <div class="status-badge" :class="cat.status === 0 ? 'status-free' : 'status-taken'">
-              {{ cat.status === 0 ? '待领养' : '已被预定' }}
+            <div class="status-badge" :class="cat.status === 0 ? 'status-free' : (cat.status === 1 ? 'status-taken' : 'status-done')">
+              {{ cat.status === 0 ? '待领养' : (cat.status === 1 ? '已被申请' : '已领养') }}
             </div>
           </div>
           <div class="cat-info">
@@ -50,7 +50,7 @@
         <el-tab-pane label="✏️ 基础档案编辑" name="info">
           <div class="tab-content">
             <el-form :model="editForm" :rules="rules" ref="editFormRef" label-width="90px" label-position="left">
-              <el-form-item label="喵咪相册" prop="fileList">
+              <el-form-item label="喵咪相册">
                 <el-upload
                     class="upload-demo" action="http://localhost:8080/api/file/upload" list-type="picture-card"
                     v-model:file-list="editFileList" :on-success="handleEditUploadSuccess" :before-upload="beforeUpload"
@@ -101,23 +101,14 @@
             <el-empty v-if="timelineData.length === 0" description="还没有记录过动态哦，快去记录吧~" />
             <el-timeline v-else>
               <el-timeline-item
-                  v-for="(item, index) in timelineData"
-                  :key="index"
-                  :timestamp="formatTime(item.createTime)"
-                  placement="top"
-                  :type="getTimelineType(item.recordType)">
+                  v-for="(item, index) in timelineData" :key="index" :timestamp="formatTime(item.createTime)" placement="top" :type="getTimelineType(item.recordType)">
                 <el-card shadow="hover" class="timeline-card">
                   <h4 class="timeline-title">{{ item.recordType }}</h4>
                   <p class="timeline-content">{{ item.content }}</p>
                   <div v-if="item.mediaUrls" class="timeline-images">
                     <el-image
-                        v-for="(img, idx) in item.mediaUrls.split(',')"
-                        :key="idx"
-                        :src="img"
-                        :preview-src-list="item.mediaUrls.split(',')"
-                        fit="cover"
-                        class="timeline-img"
-                        hide-on-click-modal />
+                        v-for="(img, idx) in item.mediaUrls.split(',')" :key="idx" :src="img" :preview-src-list="item.mediaUrls.split(',')"
+                        fit="cover" class="timeline-img" hide-on-click-modal />
                   </div>
                 </el-card>
               </el-timeline-item>
@@ -129,7 +120,7 @@
 
     <el-dialog v-model="dialogVisible" title="🐾 录入新主子档案" width="600px" class="cute-dialog" destroy-on-close>
       <el-form :model="catForm" :rules="rules" ref="catFormRef" label-width="90px">
-        <el-form-item label="喵咪相册" prop="fileList">
+        <el-form-item label="喵咪相册">
           <el-upload
               class="upload-demo" action="http://localhost:8080/api/file/upload" list-type="picture-card"
               v-model:file-list="fileList" :on-success="handleUploadSuccess" :before-upload="beforeUpload"
@@ -179,7 +170,7 @@
         <el-form-item label="详细内容" prop="content">
           <el-input type="textarea" :rows="4" v-model="recordForm.content" placeholder="记录一下今天发生的事情吧..." />
         </el-form-item>
-        <el-form-item label="附加照片" prop="recordFileList">
+        <el-form-item label="附加照片">
           <el-upload
               class="upload-demo" action="http://localhost:8080/api/file/upload" list-type="picture-card"
               v-model:file-list="recordFileList" :on-success="handleRecordUploadSuccess" :before-upload="beforeUpload"
@@ -227,7 +218,7 @@ const recordRules = {
   content: [{ required: true, message: '写点什么吧~', trigger: 'blur' }]
 }
 
-// ---- 新增：详情与编辑相关变量 ----
+// ---- 详情与编辑相关变量 ----
 const detailDrawerVisible = ref(false)
 const activeTab = ref('info')
 const currentCatDetail = ref(null)
@@ -243,13 +234,7 @@ onMounted(() => {
   fetchCats()
 })
 
-// 格式化时间
-const formatTime = (timeStr) => {
-  if (!timeStr) return ''
-  return timeStr.replace('T', ' ').substring(0, 16) // 截取到分钟
-}
-
-// 根据类型返回时间轴圆点颜色
+const formatTime = (timeStr) => timeStr ? timeStr.replace('T', ' ').substring(0, 16) : ''
 const getTimelineType = (type) => {
   if (type.includes('疫苗') || type.includes('就医')) return 'danger'
   if (type.includes('日常')) return 'success'
@@ -264,22 +249,16 @@ const fetchCats = async () => {
   } catch (error) { ElMessage.error('获取猫咪列表失败') }
 }
 
-// ---- 上传校验 ----
 const beforeUpload = (file) => {
-  const isLt5M = file.size / 1024 / 1024 < 5
-  if (!isLt5M) { ElMessage.error('照片大小不能超过 5MB！'); return false }
+  if (file.size / 1024 / 1024 > 5) { ElMessage.error('照片大小不能超过 5MB！'); return false }
   return true
 }
 
-// ---- 新增：打开猫咪详情抽屉 ----
 const openCatDetail = async (cat) => {
   currentCatDetail.value = cat
-  activeTab.value = 'info' // 默认打开基本信息 Tab
-
-  // 1. 初始化编辑表单数据 (深拷贝，防止直接修改表格数据)
+  activeTab.value = 'info'
   editForm.value = JSON.parse(JSON.stringify(cat))
 
-  // 2. 初始化编辑页面的照片墙
   editFileList.value = []
   if (cat.photoUrls) {
     const urls = cat.photoUrls.split(',')
@@ -288,40 +267,27 @@ const openCatDetail = async (cat) => {
     editFileList.value = [{ name: '封面', url: cat.coverImage }]
   }
 
-  // 3. 获取这只猫咪的时间轴履历
   await fetchCatTimeline(cat.id)
-
   detailDrawerVisible.value = true
 }
 
-// 获取猫咪时间轴数据
 const fetchCatTimeline = async (catId) => {
   try {
     const res = await axios.get(`http://localhost:8080/api/record/list/${catId}`)
-    if (res.data.code === 200) {
-      timelineData.value = res.data.data
-    }
-  } catch (error) {
-    ElMessage.error('获取履历记录失败')
-  }
+    if (res.data.code === 200) timelineData.value = res.data.data
+  } catch (error) { ElMessage.error('获取履历记录失败') }
 }
 
-// 编辑页面图片上传成功处理
 const handleEditUploadSuccess = (res, uploadFile, uploadFiles) => {
   if (res.code === 200) { uploadFile.url = res.data; editFileList.value = uploadFiles }
   else { ElMessage.error(res.message) }
 }
 
-// 提交编辑修改
+// 修复点 3：在提交编辑时剔除时间对象，防止后端解析报错
 const submitEditCat = async () => {
   if (!editFormRef.value) return
+  if (editFileList.value.length === 0) { ElMessage.warning('照片墙不能全空哦！'); return }
 
-  if (editFileList.value.length === 0) {
-    ElMessage.warning('照片墙不能全空哦！')
-    return
-  }
-
-  // 提取最新的图片 URL
   const urls = editFileList.value.map(f => f.url || (f.response && f.response.data))
   editForm.value.coverImage = urls[0]
   editForm.value.photoUrls = urls.join(',')
@@ -330,24 +296,30 @@ const submitEditCat = async () => {
     if (valid) {
       editSubmitLoading.value = true
       try {
-        const res = await axios.put('http://localhost:8080/api/cat/update', editForm.value)
+        // 核心修复：把从后端拿到的带有特殊格式的时间字符串剔除掉，不再传回后端
+        const payload = { ...editForm.value }
+        delete payload.createTime
+        delete payload.updateTime
+
+        const res = await axios.put('http://localhost:8080/api/cat/update', payload)
         if (res.data.code === 200) {
           ElMessage.success('档案修改成功！')
           detailDrawerVisible.value = false
-          fetchCats() // 刷新外面的列表
-        } else {
-          ElMessage.error(res.data.message)
-        }
+          fetchCats()
+        } else { ElMessage.error(res.data.message) }
       } catch (error) {
-        ElMessage.error('网络请求失败')
+        console.error('编辑失败详情:', error)
+        ElMessage.error('网络请求失败，请查看控制台')
       } finally {
         editSubmitLoading.value = false
       }
+    } else {
+      ElMessage.warning('请填写完整的必填信息！')
     }
   })
 }
 
-// ---- 原有：建档方法 ----
+// ---- 原有建档方法 ----
 const openAddDialog = () => {
   catForm.value = { nickname: '', earTag: '', breed: '', age: '', gender: 1, healthStatus: '', description: '', coverImage: '', photoUrls: '' }
   fileList.value = []
@@ -355,6 +327,7 @@ const openAddDialog = () => {
 }
 const handleExceed = () => ElMessage.warning('最多只能上传 5 张照片哦！')
 const handleUploadSuccess = (res, uploadFile, uploadFiles) => { if (res.code === 200) { uploadFile.url = res.data; fileList.value = uploadFiles } else { ElMessage.error(res.message) } }
+
 const submitAddCat = async () => {
   if (!catFormRef.value) return
   if (fileList.value.length === 0) { ElMessage.warning('请至少上传一张猫咪照片哦！'); return }
@@ -373,7 +346,7 @@ const submitAddCat = async () => {
   })
 }
 
-// ---- 原有：写履历方法 ----
+// ---- 原有写履历方法 ----
 const openRecordDialog = (cat) => {
   currentRecordCat.value = cat
   recordForm.value = { recordType: '日常卖萌', content: '', mediaUrls: '' }
@@ -413,9 +386,13 @@ const submitRecord = async () => {
 .cat-image-wrapper { position: relative; height: 200px; width: 100%; overflow: hidden; }
 .cat-image { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
 .cat-card:hover .cat-image { transform: scale(1.05); }
+
+/* 修复点 4：增加了已领养(红色)的样式支持 */
 .status-badge { position: absolute; top: 10px; right: 10px; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; backdrop-filter: blur(4px); }
 .status-free { background-color: rgba(103, 194, 58, 0.85); }
-.status-taken { background-color: rgba(245, 108, 108, 0.85); }
+.status-taken { background-color: rgba(230, 162, 60, 0.85); }
+.status-done { background-color: rgba(245, 108, 108, 0.85); }
+
 .cat-info { padding: 16px; }
 .cat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .cat-name { font-size: 18px; font-weight: bold; color: #333; }
@@ -424,7 +401,6 @@ const submitRecord = async () => {
 .card-actions { margin-top: 15px; border-top: 1px dashed #ebeef5; padding-top: 12px; text-align: right; }
 .action-btn { width: 100%; border-radius: 8px; }
 
-/* 详情抽屉样式 */
 .drawer-header { padding: 30px; background: linear-gradient(135deg, #fff9e6, #ffeedb); display: flex; align-items: center; gap: 20px; }
 .header-info h2 { margin: 0 0 5px 0; color: #a45a1e; font-size: 24px; }
 .header-sub { color: #c47633; font-size: 14px; }
@@ -432,7 +408,6 @@ const submitRecord = async () => {
 .tab-content { padding: 20px 0; }
 .full-btn { width: 100%; padding: 24px 0; font-size: 16px; font-weight: bold; margin-top: 20px; }
 
-/* 时间轴样式 */
 .timeline-container { max-height: calc(100vh - 200px); overflow-y: auto; padding-right: 15px; }
 .timeline-card { border-radius: 12px; }
 .timeline-title { margin: 0 0 10px 0; font-size: 16px; color: #333; }

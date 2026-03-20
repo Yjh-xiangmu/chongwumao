@@ -11,13 +11,20 @@ import java.time.LocalDateTime;
 public class AdoptApplication {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private Long userId; // 领养人ID
-    private Long catId;  // 猫咪ID
-    private String reason; // 领养理由
-    private String experience; // 养宠经验
-    private Integer status; // 0-待审核, 1-审核通过, 2-已驳回, 3-已完成
+    private Long userId;
+    private Long catId;
+    private String reason;
+    private String experience;
+    // 新增字段
+    private String housingCondition;
+    private String feedingPlan;
+    private String proofImages;
+    private String signature;
+    // 状态: 0-待审核, 1-审核通过(待签约), 2-已驳回, 3-已完成领养
+    private Integer status;
     private Long reviewerId;
     private String reviewRemark;
     private LocalDateTime applyTime;
     private LocalDateTime reviewTime;
+    private LocalDateTime signTime; // 新增字段
 }
