@@ -15,16 +15,15 @@ public class AdoptApplication {
     private Long catId;
     private String reason;
     private String experience;
-    // 新增字段
     private String housingCondition;
     private String feedingPlan;
     private String proofImages;
     private String signature;
-    // 状态: 0-待审核, 1-审核通过(待签约), 2-已驳回, 3-已完成领养
+    // 状态: 0-待审核, 1-审核通过(待签约), 2-已驳回, 3-已完成领养, 4-已取消
     private Integer status;
     private Long reviewerId;
     private String reviewRemark;
     private LocalDateTime applyTime;
     private LocalDateTime reviewTime;
-    private LocalDateTime signTime; // 新增字段
+    private LocalDateTime signTime;
 }

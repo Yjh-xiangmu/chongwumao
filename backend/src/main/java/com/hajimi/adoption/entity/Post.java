@@ -7,18 +7,15 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("sys_user")
-public class SysUser {
+@TableName("post")
+public class Post {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private String username;
-    private String password;
-    private String phone;
-    private String idCard;
-    private String realName;
-    private String address;
-    private String avatar;   // 头像URL
-    private Integer role;    // 1-领养人, 2-救助员, 3-管理员
+    private Long userId;
+    private String content;
+    private String imageUrls;
+    private Integer likeCount;
+    private Integer commentCount;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

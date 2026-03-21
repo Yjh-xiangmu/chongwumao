@@ -6,6 +6,7 @@ import com.hajimi.adoption.entity.AdoptApplication;
 import com.hajimi.adoption.entity.PetCat;
 import com.hajimi.adoption.entity.SysUser;
 import com.hajimi.adoption.service.AdoptApplicationService;
+import com.hajimi.adoption.service.NotificationService;
 import com.hajimi.adoption.service.PetCatService;
 import com.hajimi.adoption.service.SysUserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,20 +22,18 @@ import java.util.Map;
 @RequestMapping("/api/adopt")
 public class AdoptController {
 
-    @Autowired
-    private AdoptApplicationService adoptService;
-    @Autowired
-    private PetCatService petCatService;
-    @Autowired
-    private SysUserService sysUserService;
+    @Autowired private AdoptApplicationService adoptService;
+    @Autowired private PetCatService petCatService;
+    @Autowired private SysUserService sysUserService;
+    @Autowired private NotificationService notificationService;
 
-    // 1. 提交申请 (带附件)
+    // 1. 提交申请
     @PostMapping("/apply")
     public Result<String> apply(@RequestBody AdoptApplication app) {
         long count = adoptService.count(new QueryWrapper<AdoptApplication>()
                 .eq("user_id", app.getUserId())
                 .eq("cat_id", app.getCatId())
-                .in("status", 0, 1)); // 如果还在待审核或待签约，不能重复申请
+                .in("status", 0, 1));
         if (count > 0) return Result.error("您已有该猫咪的进度在处理中啦喵~");
 
         app.setStatus(0);
@@ -43,20 +42,30 @@ public class AdoptController {
 
         PetCat cat = petCatService.getById(app.getCatId());
         if (cat != null && cat.getStatus() == 0) {
-            cat.setStatus(1); // 猫咪变为: 已被申请
+            cat.setStatus(1);
             petCatService.updateById(cat);
         }
+
+        // 通知：申请已提交
+        notificationService.send(
+                app.getUserId(), 0, "APPLY_SUBMIT",
+                "领养申请已提交",
+                "您对猫咪「" + (cat != null ? cat.getNickname() : "") + "」的领养申请已提交，请耐心等待救助员审核~",
+                app.getId()
+        );
+
         return Result.success(null, "申请提交成功！");
     }
 
-    // 2. 获取所有申请 (救助员用)
+    // 2. 获取所有申请（救助员用）
     @GetMapping("/list")
     public Result<List<Map<String, Object>>> getList() {
-        List<AdoptApplication> apps = adoptService.list(new QueryWrapper<AdoptApplication>().orderByDesc("apply_time"));
+        List<AdoptApplication> apps = adoptService.list(
+                new QueryWrapper<AdoptApplication>().orderByDesc("apply_time"));
         return Result.success(buildAppList(apps), "获取成功");
     }
 
-    // 3. 获取个人的申请记录 (领养人用)
+    // 3. 获取个人申请记录（领养人用）
     @GetMapping("/myList/{userId}")
     public Result<List<Map<String, Object>>> getMyList(@PathVariable Long userId) {
         List<AdoptApplication> apps = adoptService.list(new QueryWrapper<AdoptApplication>()
@@ -75,11 +84,30 @@ public class AdoptController {
         adoptService.updateById(app);
 
         PetCat cat = petCatService.getById(app.getCatId());
+        String catName = cat != null ? cat.getNickname() : "";
+
         if (cat != null && auditData.getStatus() == 2) {
-            // 如果驳回(2)，猫咪恢复待领养(0)。如果同意(1)，猫咪仍是已被申请状态，等签约再变。
             cat.setStatus(0);
             petCatService.updateById(cat);
         }
+
+        // 通知：审核结果
+        if (auditData.getStatus() == 1) {
+            notificationService.send(
+                    app.getUserId(), 0, "APPLY_APPROVED",
+                    "🎉 领养申请已通过审核",
+                    "您对猫咪「" + catName + "」的申请已通过审核！请前往「我的领养记录」签署领养协议。",
+                    app.getId()
+            );
+        } else if (auditData.getStatus() == 2) {
+            notificationService.send(
+                    app.getUserId(), 0, "APPLY_REJECTED",
+                    "领养申请未通过",
+                    "您对猫咪「" + catName + "」的申请未通过审核。原因：" + auditData.getReviewRemark(),
+                    app.getId()
+            );
+        }
+
         return Result.success(null, "审核处理完成！");
     }
 
@@ -91,19 +119,45 @@ public class AdoptController {
 
         app.setSignature(signData.getSignature());
         app.setSignTime(LocalDateTime.now());
-        app.setStatus(3); // 申请单变为：已完成
+        app.setStatus(3);
         adoptService.updateById(app);
 
-        // 猫咪状态变为：已领养(2)
         PetCat cat = petCatService.getById(app.getCatId());
         if (cat != null) {
             cat.setStatus(2);
             petCatService.updateById(cat);
         }
+
+        // 通知：签约完成
+        notificationService.send(
+                app.getUserId(), 0, "SIGN_SUCCESS",
+                "🐱 签约完成，欢迎新家人！",
+                "恭喜！您已成功领养猫咪「" + (cat != null ? cat.getNickname() : "") + "」，请记得每15天提交一次生活记录哦~",
+                app.getId()
+        );
+
         return Result.success(null, "签约成功！恭喜您拥有了新的家人喵！");
     }
 
-    // 封装返回数据的公共方法
+    // 6. 领养人取消申请（仅限待审核状态）
+    @PostMapping("/cancel/{id}")
+    public Result<String> cancel(@PathVariable Long id) {
+        AdoptApplication app = adoptService.getById(id);
+        if (app == null) return Result.error("申请记录不存在");
+        if (app.getStatus() != 0) return Result.error("当前状态无法取消，仅待审核中的申请可以取消");
+
+        app.setStatus(4);
+        adoptService.updateById(app);
+
+        PetCat cat = petCatService.getById(app.getCatId());
+        if (cat != null && cat.getStatus() == 1) {
+            cat.setStatus(0);
+            petCatService.updateById(cat);
+        }
+        return Result.success(null, "申请已取消");
+    }
+
+    // 封装返回数据
     private List<Map<String, Object>> buildAppList(List<AdoptApplication> apps) {
         List<Map<String, Object>> resultList = new ArrayList<>();
         for (AdoptApplication app : apps) {

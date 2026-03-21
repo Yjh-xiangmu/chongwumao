@@ -80,6 +80,7 @@
             <el-tag v-if="scope.row.application.status === 0" type="info" effect="dark">等待审核</el-tag>
             <el-tag v-else-if="scope.row.application.status === 1" type="warning" effect="dark">待签约</el-tag>
             <el-tag v-else-if="scope.row.application.status === 2" type="danger" effect="dark">已驳回</el-tag>
+            <el-tag v-else-if="scope.row.application.status === 4" type="info" effect="plain">已取消</el-tag>
             <el-tag v-else-if="scope.row.application.status === 3" type="success" effect="dark">✅ 领养完成</el-tag>
           </template>
         </el-table-column>
