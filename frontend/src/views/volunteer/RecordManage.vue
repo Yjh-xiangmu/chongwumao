@@ -20,7 +20,7 @@
         <el-table-column label="领养人" width="180">
           <template #default="scope">
             <div v-if="scope.row.user" class="user-cell">
-              <span>{{ scope.row.user.username }}</span>
+              <span class="user-name-text">{{ scope.row.user.username }}<span v-if="scope.row.user.realName" class="real-name-text">（{{ scope.row.user.realName }}）</span></span>
               <span class="phone-text">{{ scope.row.user.phone }}</span>
             </div>
           </template>
@@ -80,7 +80,7 @@
         <el-avatar shape="square" :size="50" :src="currentRow.cat?.coverImage" />
         <div>
           <div class="drawer-cat-name">{{ currentRow.cat?.nickname }}</div>
-          <div class="drawer-user-name">领养人：{{ currentRow.user?.username }}</div>
+          <div class="drawer-user-name">领养人：{{ currentRow.user?.username }}{{ currentRow.user?.realName ? `（${currentRow.user.realName}）` : "" }}</div>
         </div>
       </div>
 
@@ -265,6 +265,8 @@ const submitVolunteerRecord = async () => {
 .cat-cell { display: flex; align-items: center; gap: 10px; }
 .cat-name { font-weight: bold; color: #a45a1e; }
 .user-cell { display: flex; flex-direction: column; }
+.user-name-text { font-size: 14px; color: #333; }
+.real-name-text { font-size: 12px; color: #aaa; }
 .phone-text { font-size: 12px; color: #999; margin-top: 2px; }
 
 /* 抽屉 */

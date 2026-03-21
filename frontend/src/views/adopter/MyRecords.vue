@@ -158,7 +158,7 @@
       <div class="agreement-box">
         <h3 style="text-align: center;">宠物领养协议书</h3>
         <p>甲方（救助方）：Hajimi 领养平台</p>
-        <p>乙方（领养方）：<strong>{{ userInfo.username }}</strong></p>
+        <p>乙方（领养方）：<strong>{{ userInfo.username }}{{ userInfo.realName ? `（${userInfo.realName}）` : '' }}</strong></p>
         <p>为了保障猫咪 <strong>{{ signTarget?.cat?.nickname }}</strong> 的福利，乙方承诺做到以下几点：</p>
         <ol>
           <li>科学喂养，提供充足干净的饮食。</li>

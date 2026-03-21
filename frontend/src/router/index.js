@@ -28,6 +28,7 @@ const router = createRouter({
       redirect: '/admin/dashboard',
       children: [
         { path: 'dashboard',        name: 'Dashboard',       component: () => import('../views/admin/Dashboard.vue') },
+        { path: 'pet-manage',       name: 'PetManage',       component: () => import('../views/admin/PetManage.vue') },
         { path: 'adopter-manage',   name: 'AdopterManage',   component: () => import('../views/admin/AdopterManage.vue') },
         { path: 'volunteer-manage', name: 'VolunteerManage', component: () => import('../views/admin/VolunteerManage.vue') },
         { path: 'settings',         name: 'SystemSettings',  component: () => import('../views/admin/SystemSettings.vue') },

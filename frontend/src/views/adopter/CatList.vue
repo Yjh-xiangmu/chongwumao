@@ -1,12 +1,27 @@
 <template>
   <div style="padding: 40px 0;">
+
+    <!-- Banner：读取系统设置 -->
     <div class="welcome-banner">
       <div class="banner-text">
-        <h2>给流浪的它，一个温暖的家 🏡</h2>
-        <p>科学喂养，适龄绝育，有病就医，不离不弃。</p>
+        <h2>{{ siteSettings.siteName || 'Hajimi 领养平台' }}</h2>
+        <p>{{ siteSettings.description || '科学喂养，适龄绝育，有病就医，不离不弃。' }}</p>
+        <div class="banner-meta">
+          <span v-if="siteSettings.contactPhone && siteSettings.contactPhone.trim()">
+            📞 {{ siteSettings.contactPhone }}
+          </span>
+          <span v-if="siteSettings.contactEmail && siteSettings.contactEmail.trim()">
+            ✉️ {{ siteSettings.contactEmail }}
+          </span>
+          <span v-if="siteSettings.address && siteSettings.address.trim()">
+            📍 {{ siteSettings.address }}
+          </span>
+        </div>
       </div>
+      <div class="banner-deco">🐱</div>
     </div>
 
+    <!-- 筛选栏 -->
     <div class="filter-bar">
       <h3 style="margin: 0;">✨ 寻找有缘喵</h3>
       <div class="filter-inputs">
@@ -22,12 +37,14 @@
       </div>
     </div>
 
+    <!-- 猫咪卡片列表 -->
     <el-row :gutter="24">
       <el-col :span="6" v-for="cat in filteredCats" :key="cat.id" style="margin-bottom: 30px;">
         <el-card class="cat-card" :body-style="{ padding: '0px' }" shadow="hover" @click="openCatDetail(cat)">
           <div class="cat-image-wrapper">
-            <img :src="cat.coverImage || 'https://cube.elemecdn.com/e/fd/0fc7d20532fdaf769a25683617711png.png'" class="cat-image" />
-            <div class="status-badge" :class="cat.status === 0 ? 'status-free' : (cat.status === 1 ? 'status-taken' : 'status-done')">
+            <img :src="cat.coverImage || defaultAvatar" class="cat-image" />
+            <div class="status-badge"
+                 :class="cat.status === 0 ? 'status-free' : (cat.status === 1 ? 'status-taken' : 'status-done')">
               {{ cat.status === 0 ? '寻找铲屎官中' : (cat.status === 1 ? '已被预定' : '已领养') }}
             </div>
           </div>
@@ -62,7 +79,6 @@
           <div style="display: flex; align-items: center; gap: 10px;">
             <el-tag v-if="currentCat.status === 0" type="success" effect="dark" round>待领养</el-tag>
             <el-tag v-else type="danger" effect="dark" round>已被申请/领养</el-tag>
-            <!-- 收藏按钮 -->
             <el-button
                 :type="isFavored ? 'warning' : 'default'"
                 :icon="isFavored ? 'StarFilled' : 'Star'"
@@ -117,7 +133,8 @@
                 <el-icon><Plus /></el-icon>
               </el-upload>
             </el-form-item>
-            <el-button type="primary" color="#ff9d4d" class="submit-btn" size="large" @click="submitApply" :loading="submitLoading" round>
+            <el-button type="primary" color="#ff9d4d" class="submit-btn" size="large"
+                       @click="submitApply" :loading="submitLoading" round>
               我准备好了，申请带它回家！
             </el-button>
           </el-form>
@@ -137,26 +154,34 @@ import { Male, Female, Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
 
-const userInfo = ref({})
-const catList = ref([])
-const filterForm = ref({ breed: '', gender: null, status: null })
+const defaultAvatar = 'https://cube.elemecdn.com/e/fd/0fc7d20532fdaf769a25683617711png.png'
 
-const drawerVisible = ref(false)
-const currentCat = ref(null)
-const isFavored = ref(false)
-const applyFormRef = ref(null)
-const submitLoading = ref(false)
-const proofFileList = ref([])
-const applyForm = ref({ reason: '', experience: '', housingCondition: '', feedingPlan: '', proofImages: '' })
+const userInfo     = ref({})
+const siteSettings = ref({})
+const catList      = ref([])
+const filterForm   = ref({ breed: '', gender: null, status: null })
+
+const drawerVisible  = ref(false)
+const currentCat     = ref(null)
+const isFavored      = ref(false)
+const applyFormRef   = ref(null)
+const submitLoading  = ref(false)
+const proofFileList  = ref([])
+const applyForm      = ref({ reason: '', experience: '', housingCondition: '', feedingPlan: '', proofImages: '' })
 
 const rules = {
-  reason: [{ required: true, message: '请填写领养理由', trigger: 'blur' }],
-  housingCondition: [{ required: true, message: '请填写居住情况', trigger: 'blur' }],
+  reason:          [{ required: true, message: '请填写领养理由',   trigger: 'blur' }],
+  housingCondition:[{ required: true, message: '请填写居住情况',   trigger: 'blur' }],
 }
 
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) userInfo.value = JSON.parse(userStr)
+
+  // 读取系统设置（管理员在系统设置页保存的内容）
+  const settings = localStorage.getItem('siteSettings')
+  if (settings) siteSettings.value = JSON.parse(settings)
+
   fetchCats()
 })
 
@@ -164,29 +189,26 @@ const fetchCats = async () => {
   try {
     const res = await axios.get('http://localhost:8080/api/cat/list')
     if (res.data.code === 200) catList.value = res.data.data
-  } catch (error) { ElMessage.error('获取列表失败') }
+  } catch (e) { ElMessage.error('获取列表失败') }
 }
 
-const filteredCats = computed(() => {
-  return catList.value.filter(cat => {
-    const matchBreed = !filterForm.value.breed || cat.breed?.includes(filterForm.value.breed)
-    const matchGender = !filterForm.value.gender || cat.gender === filterForm.value.gender
-    const matchStatus = filterForm.value.status === null || filterForm.value.status === '' || cat.status === filterForm.value.status
-    return matchBreed && matchGender && matchStatus
-  })
-})
+const filteredCats = computed(() => catList.value.filter(cat => {
+  const matchBreed  = !filterForm.value.breed  || cat.breed?.includes(filterForm.value.breed)
+  const matchGender = !filterForm.value.gender || cat.gender === filterForm.value.gender
+  const matchStatus = filterForm.value.status === null || filterForm.value.status === '' || cat.status === filterForm.value.status
+  return matchBreed && matchGender && matchStatus
+}))
 
 const getCatPhotos = (cat) => cat.photoUrls
     ? cat.photoUrls.split(',')
-    : (cat.coverImage ? [cat.coverImage] : ['https://cube.elemecdn.com/e/fd/0fc7d20532fdaf769a25683617711png.png'])
+    : (cat.coverImage ? [cat.coverImage] : [defaultAvatar])
 
 const openCatDetail = async (cat) => {
-  currentCat.value = cat
-  isFavored.value = false
-  applyForm.value = { reason: '', experience: '', housingCondition: '', feedingPlan: '', proofImages: '' }
+  currentCat.value  = cat
+  isFavored.value   = false
+  applyForm.value   = { reason: '', experience: '', housingCondition: '', feedingPlan: '', proofImages: '' }
   proofFileList.value = []
   drawerVisible.value = true
-  // 检查是否已收藏
   if (userInfo.value.id) {
     try {
       const res = await axios.get('http://localhost:8080/api/favorite/check', {
@@ -197,7 +219,6 @@ const openCatDetail = async (cat) => {
   }
 }
 
-// 收藏 / 取消收藏
 const toggleFavorite = async () => {
   try {
     const res = await axios.post('http://localhost:8080/api/favorite/toggle', null, {
@@ -222,53 +243,60 @@ const submitApply = async () => {
   if (!applyFormRef.value) return
   if (proofFileList.value.length > 0) {
     applyForm.value.proofImages = proofFileList.value
-        .map(f => f.url || (f.response && f.response.data)).join(',')
+        .map(f => f.url || (f.response?.data)).filter(Boolean).join(',')
   }
   await applyFormRef.value.validate(async (valid) => {
-    if (valid) {
-      submitLoading.value = true
-      try {
-        const payload = { userId: userInfo.value.id, catId: currentCat.value.id, ...applyForm.value }
-        const res = await axios.post('http://localhost:8080/api/adopt/apply', payload)
-        if (res.data.code === 200) {
-          ElMessage.success('申请提交成功！请去"我的领养记录"查看进度。')
-          drawerVisible.value = false
-          fetchCats()
-        } else { ElMessage.error(res.data.message) }
-      } catch (error) { ElMessage.error('网络请求失败') }
-      finally { submitLoading.value = false }
-    }
+    if (!valid) return
+    submitLoading.value = true
+    try {
+      const res = await axios.post('http://localhost:8080/api/adopt/apply', {
+        userId: userInfo.value.id,
+        catId:  currentCat.value.id,
+        ...applyForm.value
+      })
+      if (res.data.code === 200) {
+        ElMessage.success('申请提交成功！请去"我的领养记录"查看进度。')
+        drawerVisible.value = false
+        fetchCats()
+      } else { ElMessage.error(res.data.message) }
+    } catch (e) { ElMessage.error('网络请求失败') }
+    finally { submitLoading.value = false }
   })
 }
 </script>
 
 <style scoped>
-.welcome-banner { margin-top: 20px; height: 160px; background: linear-gradient(135deg, #ffeedb, #ffb880); border-radius: 24px; display: flex; align-items: center; padding: 0 60px; box-shadow: 0 10px 30px rgba(255,184,128,0.2); }
-.banner-text h2 { margin: 0 0 10px 0; font-size: 28px; color: #a45a1e; }
-.banner-text p { margin: 0; color: #c47633; }
-.filter-bar { margin: 30px 0 20px 0; display: flex; justify-content: space-between; align-items: center; }
+.welcome-banner { margin-top: 20px; min-height: 160px; background: linear-gradient(135deg, #ffeedb, #ffb880); border-radius: 24px; display: flex; align-items: center; justify-content: space-between; padding: 30px 60px; box-shadow: 0 10px 30px rgba(255,184,128,0.2); margin-bottom: 30px; }
+.banner-text h2 { margin: 0 0 8px 0; font-size: 28px; color: #a45a1e; }
+.banner-text p { margin: 0 0 10px 0; color: #c47633; font-size: 15px; }
+.banner-meta { display: flex; gap: 20px; font-size: 13px; color: #c47633; }
+.banner-deco { font-size: 80px; opacity: 0.3; }
+
+.filter-bar { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
 .filter-inputs { display: flex; }
+
 .cat-card { border-radius: 16px; border: none; overflow: hidden; transition: all 0.3s; cursor: pointer; }
 .cat-card:hover { transform: translateY(-8px); box-shadow: 0 15px 30px rgba(0,0,0,0.1) !important; }
 .cat-image-wrapper { position: relative; height: 240px; width: 100%; overflow: hidden; }
 .cat-image { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
 .cat-card:hover .cat-image { transform: scale(1.08); }
-.status-badge { position: absolute; top: 12px; right: 12px; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold; color: white; backdrop-filter: blur(8px); }
-.status-free { background-color: rgba(103,194,58,0.9); }
-.status-taken { background-color: rgba(230,162,60,0.9); }
-.status-done { background-color: rgba(245,108,108,0.9); }
+.status-badge { position: absolute; top: 12px; right: 12px; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold; color: #fff; backdrop-filter: blur(8px); }
+.status-free  { background: rgba(103,194,58,0.9); }
+.status-taken { background: rgba(230,162,60,0.9); }
+.status-done  { background: rgba(245,108,108,0.9); }
 .cat-info { padding: 20px; }
 .cat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .cat-name { font-size: 20px; font-weight: bold; color: #333; }
 .cat-tags { display: flex; gap: 8px; }
+
 .drawer-content { padding: 20px 40px; height: 100%; overflow-y: auto; }
 .cat-carousel { border-radius: 16px; overflow: hidden; margin-bottom: 30px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
 .carousel-img { width: 100%; height: 100%; object-fit: cover; }
 .detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
 .detail-header h2 { margin: 0; font-size: 28px; color: #333; }
 .cat-descriptions { margin-bottom: 30px; }
-.apply-section { background-color: #fff9e6; padding: 30px; border-radius: 16px; border: 1px solid #ffeedb; }
+.apply-section { background: #fff9e6; padding: 30px; border-radius: 16px; border: 1px solid #ffeedb; }
 .apply-section h3 { margin-top: 0; color: #a45a1e; }
 .submit-btn { width: 100%; margin-top: 20px; font-size: 16px; padding: 24px 0; font-weight: bold; }
-.taken-notice { margin-top: 40px; padding: 40px; background-color: #fdf6ec; border-radius: 16px; }
+.taken-notice { margin-top: 40px; padding: 40px; background: #fdf6ec; border-radius: 16px; }
 </style>

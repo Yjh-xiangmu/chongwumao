@@ -13,6 +13,9 @@
           <el-menu-item index="/admin/dashboard">
             <el-icon><DataLine /></el-icon><span>数据大盘</span>
           </el-menu-item>
+          <el-menu-item index="/admin/pet-manage">
+            <el-icon><Pets /></el-icon><span>宠物管理</span>
+          </el-menu-item>
           <el-menu-item index="/admin/adopter-manage">
             <el-icon><User /></el-icon><span>领养人管理</span>
           </el-menu-item>
@@ -55,16 +58,20 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowDown, DataLine, User, Avatar, Setting } from '@element-plus/icons-vue'
+import { ArrowDown, DataLine, User, Avatar, Setting, Memo } from '@element-plus/icons-vue'
+
+// 宠物管理用 Memo 图标
+const Pets = Memo
 
 const router = useRouter()
-const route = useRoute()
+const route  = useRoute()
 
 const titles = {
-  '/admin/dashboard': '数据大盘',
-  '/admin/adopter-manage': '领养人管理',
+  '/admin/dashboard':        '数据大盘',
+  '/admin/pet-manage':       '宠物管理',
+  '/admin/adopter-manage':   '领养人管理',
   '/admin/volunteer-manage': '救助员管理',
-  '/admin/settings': '系统设置',
+  '/admin/settings':         '系统设置',
 }
 const currentTitle = computed(() => titles[route.path] || '管理后台')
 
